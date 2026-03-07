@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>圖書盤點系統 | Book Inventory</title>
+    <meta name="description" content="專業級圖書盤點工具，支援即時驗證與本地儲存。">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>圖書盤點系統</h1>
+            <p class="subtitle">Book Inventory System</p>
+        </header>
+
+        <main>
+            <section class="input-section">
+                <div class="input-group">
+                    <input type="text" id="bookInput" placeholder="請輸入圖書編號 (例如: FGS1234567)" autofocus autocomplete="off">
+                    <button id="addButton">新增</button>
+                </div>
+                <div id="feedback" class="feedback"></div>
+            </section>
+
+            <section class="list-section">
+                <div class="list-header">
+                    <h2>盤點清單 (<span id="count">0</span>)</h2>
+                    <div class="actions">
+                        <button id="copyButton" class="btn-secondary">複製到剪貼簿</button>
+                        <button id="clearButton" class="btn-danger">清空清單</button>
+                    </div>
+                </div>
+                <div class="list-container">
+                    <ul id="bookList"></ul>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
