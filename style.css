@@ -37,15 +37,14 @@ body {
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     border-radius: 20px;
-    padding: 30px;
+    padding: 25px;
     box-shadow: var(--shadow);
-    height: 90vh;
-    max-height: 800px;
+    height: 85vh;
+    max-height: 750px;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    /* Ensure anything leaking is hidden */
-    margin: 20px;
+    margin: 10px auto;
 }
 
 header {
@@ -153,6 +152,15 @@ button {
     color: var(--success-color);
 }
 
+main {
+    flex: 1;
+    /* Fill remaining space in .container */
+    min-height: 0;
+    /* Critical: allow shrinking in flex context */
+    display: flex;
+    flex-direction: column;
+}
+
 .list-section {
     flex: 1;
     display: flex;
@@ -178,7 +186,10 @@ button {
 
 .list-container {
     flex: 1;
-    overflow-y: auto;
+    min-height: 0;
+    /* Critical: allows flex child to shrink and overflow-y to work */
+    overflow-y: scroll;
+    /* 'scroll' forces scrollbar always visible, unlike 'auto' which hides on macOS */
     background: rgba(255, 255, 255, 0.3);
     border-radius: 12px;
     padding: 10px;
@@ -230,20 +241,22 @@ li::before {
     }
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar - High Visibility */
 .list-container::-webkit-scrollbar {
-    width: 6px;
+    width: 12px;
 }
 
 .list-container::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.list-container::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.1);
+    background: #f1f1f1;
     border-radius: 10px;
 }
 
+.list-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 10px;
+    border: 3px solid #f1f1f1;
+}
+
 .list-container::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.2);
+    background: #555;
 }
