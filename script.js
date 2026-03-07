@@ -49,7 +49,6 @@ function playSound(type) {
 
     // FIX: Disconnect nodes after they finish to release AudioContext graph memory.
     // Without this, every call leaks an OscillatorNode + GainNode permanently.
-    const duration = type === 'success' ? 0.25 : 0.35;
     oscillator.addEventListener('ended', () => {
         oscillator.disconnect();
         gainNode.disconnect();
