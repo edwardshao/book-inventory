@@ -37,6 +37,14 @@ function playSound(type) {
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
         oscillator.start();
         oscillator.stop(audioCtx.currentTime + 0.2);
+    } else if (type === 'warning') {
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+        oscillator.frequency.linearRampToValueAtTime(660, audioCtx.currentTime + 0.1);
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.2);
     } else {
         oscillator.type = 'sawtooth';
         oscillator.frequency.setValueAtTime(220, audioCtx.currentTime);
@@ -104,7 +112,7 @@ function addBook() {
     if (REGEX.test(value)) {
         if (inventorySet.has(value)) { // O(1) lookup via Set
             showFeedback('此編號已在清單中', 'error');
-            playSound('error');
+            playSound('warning');
         } else {
             inventory.unshift(value);
             inventorySet.add(value); // Keep Set in sync
@@ -113,12 +121,11 @@ function addBook() {
             showFeedback('成功加入', 'success');
             playSound('success');
         }
-        bookInput.value = '';
     } else {
         showFeedback('錯誤：編號格式不符 (需為 FGS 加 7 位數字)', 'error');
         playSound('error');
-        bookInput.value = '';
     }
+    bookInput.value = '';
     bookInput.focus();
 }
 
