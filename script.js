@@ -1,5 +1,6 @@
 // Constants
 const STORAGE_KEY = 'book_inventory_list';
+const SOUND_THEME_KEY = 'book_inventory_sound_theme';
 const REGEX = /^FGS\d{7}$/;
 
 // Elements
@@ -10,6 +11,8 @@ const bookList = document.getElementById('bookList');
 const countSpan = document.getElementById('count');
 const copyButton = document.getElementById('copyButton');
 const clearButton = document.getElementById('clearButton');
+const soundThemeSelect = document.getElementById('soundThemeSelect');
+const previewSoundBtn = document.getElementById('previewSoundBtn');
 
 // State
 let inventory = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
@@ -22,45 +25,224 @@ let feedbackTimer = null;
 // Audio Setup (Web Audio API to avoid external assets)
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+// Sound Themes — each theme has its own success / warning / error signature
+// so multiple users can tell their beeps apart.
+const SOUND_THEMES = {
+    // 主題 A：原始高昇音
+    A: {
+        label: '🔵 主題 A（原始）',
+        success: (ctx) => {
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.1);
+            g.gain.setValueAtTime(0.1, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            osc.start(); osc.stop(ctx.currentTime + 0.2);
+            osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+        },
+        warning: (ctx) => {
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(660, ctx.currentTime + 0.1);
+            g.gain.setValueAtTime(0.1, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            osc.start(); osc.stop(ctx.currentTime + 0.2);
+            osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+        },
+        error: (ctx) => {
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(110, ctx.currentTime + 0.2);
+            g.gain.setValueAtTime(0.1, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            osc.start(); osc.stop(ctx.currentTime + 0.3);
+            osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+        },
+    },
+    // 主題 B：雙音節叮咚
+    B: {
+        label: '🟢 主題 B（叮咚）',
+        success: (ctx) => {
+            [0, 0.15].forEach((delay, i) => {
+                const osc = ctx.createOscillator(), g = ctx.createGain();
+                osc.connect(g); g.connect(ctx.destination);
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(i === 0 ? 1047 : 1319, ctx.currentTime + delay);
+                g.gain.setValueAtTime(0, ctx.currentTime + delay);
+                g.gain.linearRampToValueAtTime(0.12, ctx.currentTime + delay + 0.02);
+                g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + 0.18);
+                osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+            });
+        },
+        warning: (ctx) => {
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
+            osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
+            g.gain.setValueAtTime(0.1, ctx.currentTime);
+            g.gain.setValueAtTime(0.0, ctx.currentTime + 0.08);
+            g.gain.setValueAtTime(0.1, ctx.currentTime + 0.1);
+            g.gain.setValueAtTime(0.0, ctx.currentTime + 0.18);
+            g.gain.setValueAtTime(0.1, ctx.currentTime + 0.2);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.28);
+            osc.start(); osc.stop(ctx.currentTime + 0.3);
+            osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+        },
+        error: (ctx) => {
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(330, ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(220, ctx.currentTime + 0.25);
+            g.gain.setValueAtTime(0.12, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.start(); osc.stop(ctx.currentTime + 0.3);
+            osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+        },
+    },
+    // 主題 C：高頻短促嗶
+    C: {
+        label: '🟡 主題 C（嗶嗶）',
+        success: (ctx) => {
+            [0, 0.12].forEach((delay) => {
+                const osc = ctx.createOscillator(), g = ctx.createGain();
+                osc.connect(g); g.connect(ctx.destination);
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(1800, ctx.currentTime + delay);
+                g.gain.setValueAtTime(0.06, ctx.currentTime + delay);
+                g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.1);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + 0.1);
+                osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+            });
+        },
+        warning: (ctx) => {
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(1200, ctx.currentTime);
+            g.gain.setValueAtTime(0.06, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+            osc.start(); osc.stop(ctx.currentTime + 0.15);
+            osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+        },
+        error: (ctx) => {
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(400, ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.25);
+            g.gain.setValueAtTime(0.07, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc.start(); osc.stop(ctx.currentTime + 0.3);
+            osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+        },
+    },
+    // 主題 D：溫柔木琴風
+    D: {
+        label: '🟠 主題 D（木琴）',
+        success: (ctx) => {
+            [[0, 523], [0.1, 659], [0.2, 784]].forEach(([delay, freq]) => {
+                const osc = ctx.createOscillator(), g = ctx.createGain();
+                osc.connect(g); g.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+                g.gain.setValueAtTime(0, ctx.currentTime + delay);
+                g.gain.linearRampToValueAtTime(0.1, ctx.currentTime + delay + 0.01);
+                g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.2);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + 0.22);
+                osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+            });
+        },
+        warning: (ctx) => {
+            [[0, 440], [0.15, 370]].forEach(([delay, freq]) => {
+                const osc = ctx.createOscillator(), g = ctx.createGain();
+                osc.connect(g); g.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+                g.gain.setValueAtTime(0.1, ctx.currentTime + delay);
+                g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + 0.2);
+                osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+            });
+        },
+        error: (ctx) => {
+            [[0, 294], [0.12, 247]].forEach(([delay, freq]) => {
+                const osc = ctx.createOscillator(), g = ctx.createGain();
+                osc.connect(g); g.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+                g.gain.setValueAtTime(0.1, ctx.currentTime + delay);
+                g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.2);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + 0.22);
+                osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+            });
+        },
+    },
+    // 主題 E：低沉鼓聲風
+    E: {
+        label: '🔴 主題 E（低鼓）',
+        success: (ctx) => {
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(160, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.15);
+            g.gain.setValueAtTime(0.25, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+            osc.start(); osc.stop(ctx.currentTime + 0.25);
+            osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+        },
+        warning: (ctx) => {
+            [0, 0.18].forEach((delay) => {
+                const osc = ctx.createOscillator(), g = ctx.createGain();
+                osc.connect(g); g.connect(ctx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(120, ctx.currentTime + delay);
+                osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + delay + 0.12);
+                g.gain.setValueAtTime(0.2, ctx.currentTime + delay);
+                g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.15);
+                osc.start(ctx.currentTime + delay);
+                osc.stop(ctx.currentTime + delay + 0.15);
+                osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+            });
+        },
+        error: (ctx) => {
+            const osc = ctx.createOscillator(), g = ctx.createGain();
+            osc.connect(g); g.connect(ctx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(80, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.3);
+            g.gain.setValueAtTime(0.2, ctx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+            osc.start(); osc.stop(ctx.currentTime + 0.35);
+            osc.addEventListener('ended', () => { osc.disconnect(); g.disconnect(); }, { once: true });
+        },
+    },
+};
+
+// Current active theme (persisted in localStorage)
+let currentTheme = localStorage.getItem(SOUND_THEME_KEY) || 'A';
+if (!SOUND_THEMES[currentTheme]) currentTheme = 'A';
+
 function playSound(type) {
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-
-    if (type === 'success') {
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.2);
-    } else if (type === 'warning') {
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
-        oscillator.frequency.linearRampToValueAtTime(660, audioCtx.currentTime + 0.1);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.2);
-    } else {
-        oscillator.type = 'sawtooth';
-        oscillator.frequency.setValueAtTime(220, audioCtx.currentTime);
-        oscillator.frequency.linearRampToValueAtTime(110, audioCtx.currentTime + 0.2);
-        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-        oscillator.start();
-        oscillator.stop(audioCtx.currentTime + 0.3);
-    }
-
-    // FIX: Disconnect nodes after they finish to release AudioContext graph memory.
-    // Without this, every call leaks an OscillatorNode + GainNode permanently.
-    oscillator.addEventListener('ended', () => {
-        oscillator.disconnect();
-        gainNode.disconnect();
-    }, { once: true });
+    // Resume context if suspended (browser autoplay policy)
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const theme = SOUND_THEMES[currentTheme];
+    if (theme && theme[type]) theme[type](audioCtx);
 }
 
 // Functions
@@ -160,6 +342,26 @@ copyButton.addEventListener('click', () => {
         console.error('Could not copy text: ', err);
         showFeedback('複製失敗', 'error');
     });
+});
+
+// Sound theme selector — populate options & restore saved choice
+Object.entries(SOUND_THEMES).forEach(([key, theme]) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = theme.label;
+    soundThemeSelect.appendChild(option);
+});
+soundThemeSelect.value = currentTheme;
+
+soundThemeSelect.addEventListener('change', () => {
+    currentTheme = soundThemeSelect.value;
+    localStorage.setItem(SOUND_THEME_KEY, currentTheme);
+    // Play a short preview on change so the user can confirm the sound
+    playSound('success');
+});
+
+previewSoundBtn.addEventListener('click', () => {
+    playSound('success');
 });
 
 // Initialize — use rebuildList() on startup to render items from localStorage
