@@ -335,7 +335,7 @@ copyButton.addEventListener('click', () => {
         showFeedback('清單為空，無法複製', 'error');
         return;
     }
-    const textToCopy = inventory.join('\n');
+    const textToCopy = [...inventory].reverse().join('\n');
     navigator.clipboard.writeText(textToCopy).then(() => {
         showFeedback('已複製到剪貼簿', 'success');
     }).catch(err => {
