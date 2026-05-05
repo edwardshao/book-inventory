@@ -239,10 +239,14 @@ let currentTheme = localStorage.getItem(SOUND_THEME_KEY) || 'A';
 if (!SOUND_THEMES[currentTheme]) currentTheme = 'A';
 
 function playSound(type) {
-    // Resume context if suspended (browser autoplay policy)
-    if (audioCtx.state === 'suspended') audioCtx.resume();
+    // FIX: iOS (Safari / Chrome / all WebKit browsers) suspends AudioContext until
+    // a user-gesture event. resume() is async — we must wait for its Promise to
+    // resolve before scheduling audio nodes, otherwise sounds queue silently and
+    // fire all at once when the context is eventually unblocked.
     const theme = SOUND_THEMES[currentTheme];
-    if (theme && theme[type]) theme[type](audioCtx);
+    if (theme && theme[type]) {
+        audioCtx.resume().then(() => theme[type](audioCtx));
+    }
 }
 
 // Functions
